@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="移动篮子接住金币、挑战最高分的街机风小游戏。">
+  <title>金币大作战 · ArcadAI</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #080d1f;
+      color: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 15% 15%, rgb(34 211 238 / 13%), transparent 32%),
+        radial-gradient(circle at 85% 80%, rgb(250 204 21 / 10%), transparent 30%),
+        linear-gradient(145deg, #080d1f, #111a38 55%, #090f24);
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .game-shell {
+      width: min(100%, 820px);
+      padding: 30px;
+      background: linear-gradient(145deg, rgb(30 41 72 / 94%), rgb(13 21 43 / 96%));
+      border: 1px solid #344568;
+      border-radius: 24px;
+      box-shadow: 0 24px 70px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(255 255 255 / 6%);
+    }
+
+    .game-header {
+      margin-bottom: 22px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #22d3ee;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 0.28em;
+    }
+
+    h1 {
+      margin: 0;
+      color: #fde047;
+      font-size: clamp(32px, 7vw, 52px);
+      letter-spacing: 0.08em;
+      text-shadow: 0 4px 0 #854d0e, 0 0 30px rgb(250 204 21 / 18%);
+    }
+
+    .instructions {
+      max-width: 620px;
+      margin: 14px auto 0;
+      color: #b6c3db;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    kbd {
+      padding: 2px 7px;
+      color: #e0f2fe;
+      background: #0b132b;
+      border: 1px solid #3d4e70;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      overflow: hidden;
+      margin-bottom: 12px;
+      background: #0b132b;
+      border: 1px solid #344568;
+      border-radius: 14px;
+    }
+
+    .stat {
+      padding: 14px 10px;
+      text-align: center;
+    }
+
+    .stat + .stat {
+      border-left: 1px solid #293957;
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 4px;
+      color: #8192b3;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.15em;
+    }
+
+    .stat output {
+      color: #f8fafc;
+      font-family: "Courier New", monospace;
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .stat-best output {
+      color: #fde047;
+    }
+
+    .stat-lives output {
+      color: #67e8f9;
+    }
+
+    .canvas-wrap {
+      overflow: hidden;
+      border: 2px solid #3b5279;
+      border-radius: 16px;
+      box-shadow: 0 0 0 5px #0b132b, 0 12px 30px rgb(0 0 0 / 25%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #0d1733;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .game-button {
+      min-height: 50px;
+      padding: 12px 20px;
+      color: #e0f2fe;
+      background: #172443;
+      border: 1px solid #3b5279;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: none;
+      transition: background 150ms, border-color 150ms, transform 150ms, box-shadow 150ms;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .game-button:hover:not(:disabled) {
+      background: #223455;
+      border-color: #67e8f9;
+      box-shadow: 0 5px 16px rgb(34 211 238 / 10%);
+      transform: translateY(-2px);
+    }
+
+    .game-button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .game-button:focus-visible {
+      outline: 3px solid #fde047;
+      outline-offset: 3px;
+    }
+
+    .game-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .primary-button {
+      color: #172554;
+      background: linear-gradient(135deg, #fde047, #facc15);
+      border-color: #fde68a;
+      box-shadow: 0 5px 0 #a16207;
+    }
+
+    .primary-button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #fef08a, #fde047);
+      border-color: #fef9c3;
+      box-shadow: 0 7px 0 #a16207;
+    }
+
+    .pause-button {
+      min-width: 126px;
+      color: #a5f3fc;
+      font-size: 14px;
+    }
+
+    .version-note {
+      margin: 18px 0 0;
+      color: #7284a5;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgb(3 7 18 / 82%);
+      backdrop-filter: blur(8px);
+    }
+
+    .overlay[hidden] {
+      display: none;
+    }
+
+    .dialog {
+      width: min(100%, 420px);
+      padding: 34px;
+      text-align: center;
+      background: linear-gradient(145deg, #1d2a49, #10192f);
+      border: 1px solid #64748b;
+      border-radius: 22px;
+      box-shadow: 0 24px 70px #020617, inset 0 1px 0 rgb(255 255 255 / 8%);
+    }
+
+    .dialog-icon {
+      margin: 0 0 12px;
+      font-size: 44px;
+      line-height: 1;
+    }
+
+    .dialog h2 {
+      margin: 0 0 12px;
+      color: #fde047;
+      font-size: 30px;
+    }
+
+    .dialog p {
+      margin: 0;
+      color: #cbd5e1;
+      line-height: 1.8;
+    }
+
+    .dialog .game-button {
+      width: 100%;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 12px;
+      }
+
+      .game-shell {
+        padding: 20px 14px;
+        border-radius: 18px;
+      }
+
+      .instructions {
+        font-size: 13px;
+      }
+
+      .stat {
+        padding: 11px 4px;
+      }
+
+      .stat output {
+        font-size: 22px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .pause-button {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 42px;
+      }
+
+      .dialog {
+        padding: 28px 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell">
+    <header class="game-header">
+      <p class="eyebrow">ARCADAI · COIN CATCHER</p>
+      <h1>金币大作战</h1>
+      <p class="instructions">左右移动篮子，接住金币，每枚价值 10 分；漏掉 3 枚就会结束。<br>按 <kbd>←</kbd> <kbd>→</kbd> 或 <kbd>A</kbd> <kbd>D</kbd> 移动，按 <kbd>空格</kbd> 暂停，也可使用下方按钮。</p>
+    </header>
+
+    <section class="scoreboard" aria-label="游戏数据" aria-live="polite">
+      <div class="stat">
+        <span class="stat-label">当前得分</span>
+        <output id="score">0</output>
+      </div>
+      <div class="stat stat-best">
+        <span class="stat-label">最高分</span>
+        <output id="high-score">0</output>
+      </div>
+      <div class="stat stat-lives">
+        <span class="stat-label">剩余机会</span>
+        <output id="lives">3</output>
+      </div>
+    </section>
+
+    <div class="canvas-wrap">
+      <canvas id="game" width="720" height="480" role="img" aria-label="接金币游戏区域">你的浏览器不支持 Canvas。</canvas>
+    </div>
+
+    <div class="controls" aria-label="游戏控制">
+      <button id="left" class="game-button" type="button" aria-label="向左移动">← 左移</button>
+      <button id="pause" class="game-button pause-button" type="button" disabled>暂停游戏</button>
+      <button id="right" class="game-button" type="button" aria-label="向右移动">右移 →</button>
+    </div>
+    <p class="version-note">瞄准落点，挑战你的反应极限 · 最高分会保存在此浏览器中</p>
+  </main>
+
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+    <div class="dialog">
+      <div class="dialog-icon" aria-hidden="true">🪙</div>
+      <h2 id="overlay-title">准备迎接金币雨！</h2>
+      <p id="overlay-text">接住尽可能多的金币，向最高纪录发起挑战。<br>点击开始，看看你能拿多少分！</p>
+      <button id="start" class="game-button primary-button" type="button">开始游戏</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.querySelector("#game");
+    const context = canvas.getContext("2d");
+    const scoreOutput = document.querySelector("#score");
+    const highScoreOutput = document.querySelector("#high-score");
+    const livesOutput = document.querySelector("#lives");
+    const overlay = document.querySelector("#overlay");
+    const overlayTitle = document.querySelector("#overlay-title");
+    const overlayText = document.querySelector("#overlay-text");
+    const startButton = document.querySelector("#start");
+    const pauseButton = document.querySelector("#pause");
+
+    const CONFIG = {
+      coinSpeedMin: 190,
+      coinSpeedRange: 90,
+      basketSpeed: 540,
+      spawnInterval: 0.7,
+      startingLives: 3,
+      pointsPerCoin: 10
+    };
+    const HIGH_SCORE_KEY = "arcadai-coin-catcher-high-score";
+    const basket = { width: 110, height: 24, x: 305, y: 430, speed: CONFIG.basketSpeed };
+    const keys = { left: false, right: false };
+    let coins = [];
+    let score = 0;
+    let lives = CONFIG.startingLives;
+    let highScore = loadHighScore();
+    let newRecord = false;
+    let state = "ready";
+    let lastTime = 0;
+    let spawnTimer = 0;
+    let animationId = 0;
+
+    highScoreOutput.value = highScore;
+
+    function loadHighScore() {
+      try {
+        const savedScore = Number(localStorage.getItem(HIGH_SCORE_KEY));
+        return Number.isFinite(savedScore) && savedScore > 0 ? Math.floor(savedScore) : 0;
+      } catch {
+        return 0;
+      }
+    }
+
+    function saveHighScore() {
+      try {
+        localStorage.setItem(HIGH_SCORE_KEY, String(highScore));
+      } catch {
+        // The game still works when browser storage is unavailable.
+      }
+    }
+
+    function updateScore() {
+      scoreOutput.value = score;
+      if (score > highScore) {
+        highScore = score;
+        newRecord = true;
+        highScoreOutput.value = highScore;
+        saveHighScore();
+      }
+    }
+
+    function clearMovement() {
+      keys.left = false;
+      keys.right = false;
+    }
+
+    function resetGame() {
+      coins = [];
+      score = 0;
+      lives = CONFIG.startingLives;
+      newRecord = false;
+      basket.x = (canvas.width - basket.width) / 2;
+      clearMovement();
+      spawnTimer = 0;
+      lastTime = performance.now();
+      scoreOutput.value = score;
+      livesOutput.value = lives;
+    }
+
+    function startGame() {
+      cancelAnimationFrame(animationId);
+      resetGame();
+      state = "running";
+      overlay.hidden = true;
+      pauseButton.disabled = false;
+      pauseButton.textContent = "暂停游戏";
+      animationId = requestAnimationFrame(update);
+    }
+
+    function showOverlay(title, text, buttonText) {
+      overlayTitle.textContent = title;
+      overlayText.textContent = text;
+      startButton.textContent = buttonText;
+      overlay.hidden = false;
+      startButton.focus();
+    }
+
+    function pauseGame() {
+      if (state !== "running") return;
+      state = "paused";
+      cancelAnimationFrame(animationId);
+      clearMovement();
+      pauseButton.textContent = "继续游戏";
+      showOverlay("游戏已暂停", `当前得分 ${score}，最高纪录 ${highScore}。准备好后继续挑战吧！`, "继续游戏");
+    }
+
+    function resumeGame() {
+      if (state !== "paused") return;
+      state = "running";
+      overlay.hidden = true;
+      lastTime = performance.now();
+      pauseButton.textContent = "暂停游戏";
+      animationId = requestAnimationFrame(update);
+    }
+
+    function toggleGame() {
+      if (state === "running") {
+        pauseGame();
+      } else if (state === "paused") {
+        resumeGame();
+      } else {
+        startGame();
+      }
+    }
+
+    function endGame() {
+      state = "over";
+      clearMovement();
+      pauseButton.disabled = true;
+      pauseButton.textContent = "暂停游戏";
+      const recordMessage = newRecord ? "新纪录诞生，太厉害了！" : `历史最高分为 ${highScore}。`;
+      showOverlay("挑战结束", `你接到了 ${score / CONFIG.pointsPerCoin} 枚金币，本局得分 ${score}。${recordMessage}`, "再玩一次");
+    }
+
+    function spawnCoin() {
+      const radius = 14;
+      coins.push({
+        x: radius + Math.random() * (canvas.width - radius * 2),
+        y: -radius,
+        radius,
+        speed: CONFIG.coinSpeedMin + Math.random() * CONFIG.coinSpeedRange
+      });
+    }
+
+    function update(currentTime) {
+      if (state !== "running") return;
+
+      const delta = Math.min((currentTime - lastTime) / 1000, 0.04);
+      lastTime = currentTime;
+
+      if (keys.left) basket.x -= basket.speed * delta;
+      if (keys.right) basket.x += basket.speed * delta;
+      basket.x = Math.max(0, Math.min(canvas.width - basket.width, basket.x));
+
+      spawnTimer += delta;
+      if (spawnTimer >= CONFIG.spawnInterval) {
+        spawnCoin();
+        spawnTimer = 0;
+      }
+
+      for (let index = coins.length - 1; index >= 0; index -= 1) {
+        const coin = coins[index];
+        coin.y += coin.speed * delta;
+
+        const touchesBasket = coin.y + coin.radius >= basket.y &&
+          coin.y - coin.radius <= basket.y + basket.height &&
+          coin.x + coin.radius >= basket.x &&
+          coin.x - coin.radius <= basket.x + basket.width;
+
+        if (touchesBasket) {
+          coins.splice(index, 1);
+          score += CONFIG.pointsPerCoin;
+          updateScore();
+        } else if (coin.y - coin.radius > canvas.height) {
+          coins.splice(index, 1);
+          lives -= 1;
+          livesOutput.value = lives;
+          if (lives === 0) {
+            draw();
+            endGame();
+            return;
+          }
+        }
+      }
+
+      draw();
+      animationId = requestAnimationFrame(update);
+    }
+
+    function draw() {
+      const background = context.createLinearGradient(0, 0, 0, canvas.height);
+      background.addColorStop(0, "#111c3e");
+      background.addColorStop(1, "#080f25");
+      context.fillStyle = background;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      context.strokeStyle = "rgb(56 189 248 / 7%)";
+      context.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += 60) {
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x, canvas.height);
+        context.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += 60) {
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(canvas.width, y);
+        context.stroke();
+      }
+
+      context.fillStyle = "#93c5fd";
+      for (let x = 35; x < canvas.width; x += 90) {
+        context.fillRect(x, 55 + (x % 4) * 35, 3, 3);
+      }
+
+      for (const coin of coins) {
+        const coinGradient = context.createRadialGradient(coin.x - 4, coin.y - 5, 2, coin.x, coin.y, coin.radius);
+        coinGradient.addColorStop(0, "#fef9c3");
+        coinGradient.addColorStop(0.45, "#fde047");
+        coinGradient.addColorStop(1, "#f59e0b");
+        context.beginPath();
+        context.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+        context.fillStyle = coinGradient;
+        context.fill();
+        context.lineWidth = 3;
+        context.strokeStyle = "#fbbf24";
+        context.stroke();
+        context.fillStyle = "#a16207";
+        context.font = "bold 15px Courier New";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText("$", coin.x, coin.y + 1);
+      }
+
+      context.shadowColor = "#22d3ee";
+      context.shadowBlur = 16;
+      context.fillStyle = "#22d3ee";
+      context.fillRect(basket.x, basket.y, basket.width, basket.height);
+      context.fillStyle = "#a5f3fc";
+      context.fillRect(basket.x - 10, basket.y - 8, basket.width + 20, 10);
+      context.shadowBlur = 0;
+      context.fillStyle = "#0e7490";
+      context.fillRect(basket.x + 10, basket.y + 8, basket.width - 20, 8);
+    }
+
+    function setDirection(direction, active) {
+      keys[direction] = state === "running" && active;
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (["ArrowLeft", "ArrowRight", "a", "d", "A", "D"].includes(event.key) && state === "running") {
+        event.preventDefault();
+      }
+      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") setDirection("left", true);
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") setDirection("right", true);
+      if (event.code === "Space" && !event.repeat && event.target.tagName !== "BUTTON") {
+        event.preventDefault();
+        toggleGame();
+      }
+    });
+
+    document.addEventListener("keyup", (event) => {
+      if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") setDirection("left", false);
+      if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") setDirection("right", false);
+    });
+
+    window.addEventListener("blur", () => {
+      clearMovement();
+      pauseGame();
+    });
+
+    for (const direction of ["left", "right"]) {
+      const button = document.querySelector(`#${direction}`);
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        button.setPointerCapture(event.pointerId);
+        setDirection(direction, true);
+      });
+      button.addEventListener("pointerup", () => setDirection(direction, false));
+      button.addEventListener("pointercancel", () => setDirection(direction, false));
+      button.addEventListener("lostpointercapture", () => setDirection(direction, false));
+    }
+
+    startButton.addEventListener("click", toggleGame);
+    pauseButton.addEventListener("click", toggleGame);
+    draw();
+  </script>
+</body>
+</html>
